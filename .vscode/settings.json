@@ -15,5 +15,6 @@
     "--query-driver=**",
     "--compile-commands-dir=/home/jose/documents/ESPelemetry/build"
   ],
-  "cmake.configureOnOpen": false
+  "cmake.configureOnOpen": false,
+  "idf.flashType": "UART"
 }
