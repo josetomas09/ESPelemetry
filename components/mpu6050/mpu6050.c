@@ -389,7 +389,7 @@ esp_err_t mpu6050_calibrate(mpu6050_handle_t sensor, uint16_t num_samples){
     mpu6050_acce_value_t temp_acce;
     mpu6050_gyro_value_t temp_gyro;
 
-    // Descartamos 50 lecturas inestables
+    // Discard 50 unstable readings
     for(int i = 0; i < 50; i++){
         mpu6050_get_acce(sensor, &temp_acce);
         mpu6050_get_gyro(sensor, &temp_gyro);
@@ -413,7 +413,6 @@ esp_err_t mpu6050_calibrate(mpu6050_handle_t sensor, uint16_t num_samples){
     sens->gyro_offset.gyro_y = gy_sum / num_samples;
     sens->gyro_offset.gyro_z = gz_sum / num_samples;
 
-    // Ajuste de la gravedad terrestre (Eje Z)
     if (sens->acce_offset.acce_z > 0) {
         sens->acce_offset.acce_z -= 1.0f;
     } else {

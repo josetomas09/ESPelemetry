@@ -6,8 +6,8 @@
 #include "esp_system.h"
 #include "esp_log.h"
 
-#define I2C_MASTER_SCL_IO 15            /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO 7             /*!< gpio number for I2C master data  */
+#define I2C_MASTER_SDA_IO 8             /*!< gpio number for I2C master data  */
+#define I2C_MASTER_SCL_IO 9             /*!< gpio number for I2C master clock */
 #define I2C_MASTER_FREQ_HZ 400000       /*!< I2C master clock frequency (400kHz for Fast-Mode) */
 
 static void i2c_bus_init(void);

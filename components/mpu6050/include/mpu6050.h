@@ -386,12 +386,12 @@ esp_err_t mpu6050_get_gyro(mpu6050_handle_t sensor, mpu6050_gyro_value_t *const 
 esp_err_t mpu6050_get_temp(mpu6050_handle_t sensor, mpu6050_temp_value_t *const temp_value);
 
 /**
- * @brief Calibra el sensor tomando multiples muestras en reposo para encontrar los offsets.
- *        ¡El sensor debe estar completamente quieto y plano al llamar esta función!
+ * @brief Calibrates the sensor by taking multiple samples while at rest to find the offsets.
+ *        The sensor must be completely still and level when calling this function!
  *
- * @param sensor El manejador (handle) del mpu6050.
- * @param acce_offset Puntero donde se guardará el error promedio del acelerómetro.
- * @param gyro_offset Puntero donde se guardará el error promedio del giroscopio.
- * @return ESP_OK si tuvo éxito.
+ * @param sensor The MPU6050 handle.
+ * @param acce_offset Pointer where the average accelerometer error will be stored.
+ * @param gyro_offset Pointer where the average gyroscope error will be stored.
+ * @return ESP_OK if successful.
  */
 esp_err_t mpu6050_calibrate(mpu6050_handle_t sensor, uint16_t num_samples);
