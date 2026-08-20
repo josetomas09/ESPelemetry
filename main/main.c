@@ -3,6 +3,7 @@
 #include "freertos/task.h"
 #include "driver/i2c_master.h"
 #include "mpu6050.h"
+#include "eekf.h"
 #include "esp_system.h"
 #include "esp_log.h"
 
