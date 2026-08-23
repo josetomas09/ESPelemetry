@@ -16,7 +16,7 @@ static void i2c_bus_init(void);
 mpu6050_acce_value_t acce_offset;
 mpu6050_gyro_value_t gyro_offset;
 
-static const char *TAG = "mpu6050 test";
+static const char *TAG = "ESPelemetry";
 static mpu6050_handle_t mpu = NULL;
 
 

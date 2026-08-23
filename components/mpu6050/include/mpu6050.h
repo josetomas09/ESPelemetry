@@ -7,6 +7,10 @@
  * Base lib: https://github.com/espressif/esp-bsp/tree/604890dd0abbf11f5d77461bc864dcfb153b0b45/components/mpu6050
  * 
  */
+
+#ifndef MPU6050_H
+#define MPU6050_H
+
 #include "driver/i2c_master.h"
 #include "driver/gpio.h"
 
@@ -395,3 +399,5 @@ esp_err_t mpu6050_get_temp(mpu6050_handle_t sensor, mpu6050_temp_value_t *const 
  * @return ESP_OK if successful.
  */
 esp_err_t mpu6050_calibrate(mpu6050_handle_t sensor, uint16_t num_samples);
+
+#endif // MPU6050_H
