@@ -1,45 +1,87 @@
+#ifndef TPMS_H
+#define TPMS_H
+
 #include "stdint.h"
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
-    TIRE_FL,
-    TIRE_FR,
-    TIRE_RL,
-    TIRE_RR
+    TPMS_FRONT_LEFT,
+    TPMS_FRONT_RIGHT,
+    TPMS_REAR_LEFT,
+    TPMS_REAR_RIGHT,
+    TPMS_TIRE_COUNT
 } tpms_t;
 
 typedef struct {
+    uint16_t header;
+    uint16_t raw_temp;
+    uint16_t raw_pressure;
+    uint8_t  id[3];
+    uint8_t  raw_battery;
+    uint8_t  checksum;
+}mfg_payload_t;
+
+typedef uint8_t tpms_ble_addr[6];
+
+typedef struct {
     tpms_t tire;
-    float pressure;
-    float temperature;
-    float battery;
+    tpms_ble_addr addr;
+    int64_t last_seen_us;
+    float temp;
+    float pressure_bar;
+    float pressure_psi;
+    float bat;
 } tpms_data_t;
 
-typedef uint8_t tpms_ble_addr[11]; // TPMS BLE address
 
-uint8_t tpms_connected; // TPMS connected flag
+/**
+ * Initialize the TPMS component.
+ *
+ * @return ESP_OK on success, or an error code on failure.
+ */
+esp_err_t tpms_init(void);
 
-uint8_t FL_updated; // Front Left updated flag
-uint8_t FR_updated; // Front Right updated flag
-uint8_t RL_updated; // Rear Left updated flag
-uint8_t RR_updated; // Rear Right updated flag
+/**
+ * Finds the tire assigned to a Bluetooth address.
+ *
+ * @param addr Bluetooth address to look up.
+ * @param out_tire Pointer that receives the matching tire position.
+ * @return ESP_OK if the address is found; otherwise, an error code.
+ */
+esp_err_t tpms_lookup_by_addr(const tpms_ble_addr addr, tpms_t *out_tire);
 
-float FL_pressure; // Front Left pressure value
-float FR_pressure; // Front Right pressure value
-float RL_pressure; // Rear Left pressure value
-float RR_pressure; // Rear Right pressure value
 
-float FL_temperature; // Front Left temperature value
-float FR_temperature; // Front Right temperature value
-float RL_temperature; // Rear Left temperature value
-float RR_temperature; // Rear Right temperature value
+/**
+ * Decodes a TPMS manufacturer payload into its structured data fields.
+ *
+ * @param payload Raw manufacturer payload data.
+ * @param payload_len Length of the payload in bytes.
+ * @param out_payload Pointer that receives the decoded payload.
+ * @return ESP_OK on success, or an error code if decoding fails.
+ */
+esp_err_t tpms_decode_mfg_payload(const uint8_t *payload, size_t payload_len, mfg_payload_t *out_payload);
 
-float FL_battery; // Front Left battery value
-float FR_battery; // Front Right battery value
-float RL_battery; // Rear Left battery value
-float RR_battery; // Rear Right battery value
+/**
+ * Marks a tire as having received a new TPMS update.
+ *
+ * @param tire Tire position to mark as updated.
+ */
+void tpms_last_update(tpms_t tire);
 
-void tpms_init(void);
 
+
+
+/* Estas funciones quedan para luego. */
 float tpms_get_pressure(tpms_t tire);
 float tpms_get_temperature(tpms_t tire);
 float tpms_get_battery(tpms_t tire);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* BLE_H */

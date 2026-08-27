@@ -6,6 +6,8 @@
 #include "eekf.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "sensor_fusion.h"
 
 #define I2C_MASTER_SDA_IO 8             /*!< gpio number for I2C master data  */
 #define I2C_MASTER_SCL_IO 9             /*!< gpio number for I2C master clock */
@@ -19,6 +21,7 @@ mpu6050_gyro_value_t gyro_offset;
 static const char *TAG = "ESPelemetry";
 static mpu6050_handle_t mpu = NULL;
 
+static int64_t last_time_us = 0;   // <-- estaba global y sin usar; la paso a static, ver nota abajo
 
 void app_main(void){
 
@@ -40,18 +43,31 @@ void app_main(void){
     ESP_ERROR_CHECK(mpu6050_calibrate(mpu, 5000));
     ESP_LOGI(TAG, "Calibracion exitosa!");
 
-   while (1) {
+    sensor_fusion_init();
+    last_time_us = esp_timer_get_time();
+
+    while (1) {
         mpu6050_get_acce(mpu, &acce);
         mpu6050_get_gyro(mpu, &gyro);
         mpu6050_get_temp(mpu, &temp);
 
+        int64_t now_us = esp_timer_get_time();
+        float dt = (now_us - last_time_us) / 1e6f;
+        last_time_us = now_us;
+
+        sensor_fusion_update(
+            dt,
+            acce.acce_x, acce.acce_y, acce.acce_z,
+            gyro.gyro_x, gyro.gyro_y, gyro.gyro_z
+        );
+
         ESP_LOGI(TAG, "Temp: %.2f °C", temp.temp);
         ESP_LOGI(TAG, "Acce (g)   X: %.2f \t Y: %.2f \t Z: %.2f", acce.acce_x, acce.acce_y, acce.acce_z);
-        ESP_LOGI(TAG, "Gyro (dps) X: %.2f \t Y: %.2f \t Z: %.2f\n", gyro.gyro_x, gyro.gyro_y, gyro.gyro_z);
+        ESP_LOGI(TAG, "Gyro (dps) X: %.2f \t Y: %.2f \t Z: %.2f", gyro.gyro_x, gyro.gyro_y, gyro.gyro_z);
+        ESP_LOGI(TAG, "Fused (deg) Roll: %.2f \t Pitch: %.2f \t Yaw: %.2f\n", get_roll(), get_pitch(), get_yaw());
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }
-
 
 }
 

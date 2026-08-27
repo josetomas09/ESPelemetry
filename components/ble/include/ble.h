@@ -12,31 +12,45 @@ extern "C" {
 #define BLE_ADDR_LEN 6u
 
 /**
- * Reporte crudo de un advertising packet, ya desempaquetado.
- * No hay ni un solo tipo de NimBLE acá adentro — esa es la regla.
+ * @brief BLE advertising report.
  *
- * IMPORTANTE: `name` NO viene terminado en '\0' (así es como llega por aire).
- * Usá siempre name_len, nunca strlen/strcmp directo sobre name.
+ * @warning name/mfg_data point into a buffer owned by the NimBLE host and
+ *          are ONLY valid for the duration of the ble_scan_cb_t callback.
+ *          Copy any data you need before returning from the callback.
  */
 typedef struct {
     uint8_t addr[BLE_ADDR_LEN];
     int8_t  rssi;
     const uint8_t *name;
     uint8_t name_len;
-    const uint8_t *mfg_data;
-    uint8_t mfg_data_len;
+    const uint8_t *mfg_payload;
+    uint8_t mfg_payload_len;
 } ble_adv_report_t;
 
-/// Se llama una vez por cada advertising packet recibido, desde la tarea del host BLE.
 typedef void (*ble_scan_cb_t)(const ble_adv_report_t *report, void *ctx);
 
-/// Arma el host NimBLE. Llamar una sola vez, antes de ble_register_scan_cb/ble_start.
+/**
+ * @brief Initialize the BLE stack.
+ *
+ * @return ESP_OK on success, or an error code on failure.
+ */
 esp_err_t ble_init(void);
 
-/// Se suscribe a los reportes de scan. Solo válido entre ble_init() y ble_start().
+/**
+ * @brief Register a callback for BLE scan results.
+ *
+ * @param cb The callback function to register.
+ * @param ctx The context to pass to the callback.
+ *
+ * @return ESP_OK on success, or an error code on failure.
+ */
 esp_err_t ble_register_scan_cb(ble_scan_cb_t cb, void *ctx);
 
-/// Cierra la configuración, arranca la tarea del host y empieza a escanear.
+/**
+ * @brief Start the BLE scanning process.
+ *
+ * @return ESP_OK on success, or an error code on failure.
+ */
 esp_err_t ble_start(void);
 
 #ifdef __cplusplus
