@@ -17,12 +17,11 @@ typedef enum {
 } tpms_t;
 
 typedef struct {
-    uint16_t header;
-    uint16_t raw_temp;
+    uint8_t  raw_temp;
     uint16_t raw_pressure;
     uint8_t  id[3];
-    uint8_t  raw_battery;
-    uint8_t  checksum;
+//  uint8_t  raw_battery;   The battery is in the string but is encrypted. 
+//  uint16_t checksum;      TODO: verify algoritm before use for validation.
 }mfg_payload_t;
 
 typedef uint8_t tpms_ble_addr[6];
@@ -31,10 +30,8 @@ typedef struct {
     tpms_t tire;
     tpms_ble_addr addr;
     int64_t last_seen_us;
-    float temp;
+    float temp_c;
     float pressure_bar;
-    float pressure_psi;
-    float bat;
 } tpms_data_t;
 
 
@@ -63,25 +60,27 @@ esp_err_t tpms_lookup_by_addr(const tpms_ble_addr addr, tpms_t *out_tire);
  * @param out_payload Pointer that receives the decoded payload.
  * @return ESP_OK on success, or an error code if decoding fails.
  */
-esp_err_t tpms_decode_mfg_payload(const uint8_t *payload, size_t payload_len, mfg_payload_t *out_payload);
+esp_err_t tpms_raw_mfg_payload(const uint8_t *payload, size_t payload_len, mfg_payload_t *out_payload);
 
 /**
- * Marks a tire as having received a new TPMS update.
+ * Updates the stored data for a tire from a decoded TPMS payload.
  *
- * @param tire Tire position to mark as updated.
+ * @param tire Tire position to update.
+ * @param payload Decoded TPMS manufacturer payload.
+ * @param out_value Pointer that receives the updated tire data.
+ * @return ESP_OK on success, or an error code on failure.
  */
-void tpms_last_update(tpms_t tire);
+esp_err_t tpms_last_update(tpms_t tire, mfg_payload_t *payload, tpms_data_t *out_value);
 
 
+float tpms_bar_to_psi(float pressure_bar);
+
+// TODO: Getter fuction 
 
 
-/* Estas funciones quedan para luego. */
-float tpms_get_pressure(tpms_t tire);
-float tpms_get_temperature(tpms_t tire);
-float tpms_get_battery(tpms_t tire);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* BLE_H */
+#endif /* TPMS.H */

@@ -1,4 +1,3 @@
-/* components/ble/ble.c */
 #include "ble.h"
 #include "gap.h"
 

@@ -33,17 +33,17 @@ static float accel_to_pitch_rad(float ax, float ay, float az) {
 
 eekf_return transition_f(eekf_mat* xp, eekf_mat* Jf, eekf_mat const *x, eekf_mat const *u, void* userData) {
 
-    if (xp == NULL || Jf == NULL || x == NULL || u == NULL || userData == NULL) {
+    if(xp == NULL || Jf == NULL || x == NULL || u == NULL || userData == NULL){
         printf("arg\n");
         return eEekfReturnComputationFailed;
     }
     float dt = *((float*) userData);
 
-    for (uint8_t i = 0; i < 3; i++) {
+    for(uint8_t i = 0; i < 3; i++){
         xp->elements[i] = x->elements[i] + u->elements[i] * dt;
     }
 
-    /* Jacobiano identidad (modelo de transición lineal) */
+    /* Identity Jacobian (linear transition model) */
     *EEKF_MAT_EL(*Jf, 0, 0) = 1.0;  *EEKF_MAT_EL(*Jf, 0, 1) = 0.0;  *EEKF_MAT_EL(*Jf, 0, 2) = 0.0;
     *EEKF_MAT_EL(*Jf, 1, 0) = 0.0;  *EEKF_MAT_EL(*Jf, 1, 1) = 1.0;  *EEKF_MAT_EL(*Jf, 1, 2) = 0.0;
     *EEKF_MAT_EL(*Jf, 2, 0) = 0.0;  *EEKF_MAT_EL(*Jf, 2, 1) = 0.0;  *EEKF_MAT_EL(*Jf, 2, 2) = 1.0;
@@ -52,7 +52,7 @@ eekf_return transition_f(eekf_mat* xp, eekf_mat* Jf, eekf_mat const *x, eekf_mat
 }
 
 eekf_return measurement_h(eekf_mat* zp, eekf_mat* jh, eekf_mat const *x, void* userData) {
-    if (zp == NULL || jh == NULL || x == NULL) {
+    if(zp == NULL || jh == NULL || x == NULL){
         return eEekfReturnComputationFailed;
     }
     (void) userData;
@@ -91,14 +91,12 @@ void sensor_fusion_update(float dt, float acce_x, float acce_y, float acce_z, fl
 
     sensor_fusion_ctx.userData = &dt;
 
-    /* Giro: °/s -> rad/s */
     *EEKF_MAT_EL(gyro_input, 0, 0) = DEG_TO_RAD(gyro_x);
     *EEKF_MAT_EL(gyro_input, 1, 0) = DEG_TO_RAD(gyro_y);
     *EEKF_MAT_EL(gyro_input, 2, 0) = DEG_TO_RAD(gyro_z);
 
     eekf_predict(&sensor_fusion_ctx, &gyro_input, &process_noise_Q);
 
-    /* Acelerómetro -> ángulo (ya en radianes, atan2 los da así) */
     *EEKF_MAT_EL(measurement_z, 0, 0) = accel_to_roll_rad(acce_y, acce_z);
     *EEKF_MAT_EL(measurement_z, 1, 0) = accel_to_pitch_rad(acce_x, acce_y, acce_z);
 

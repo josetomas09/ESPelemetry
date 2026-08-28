@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "sensor_fusion.h"
+#include "tpms.h"
 
 #define I2C_MASTER_SDA_IO 8             /*!< gpio number for I2C master data  */
 #define I2C_MASTER_SCL_IO 9             /*!< gpio number for I2C master clock */
@@ -21,7 +22,7 @@ mpu6050_gyro_value_t gyro_offset;
 static const char *TAG = "ESPelemetry";
 static mpu6050_handle_t mpu = NULL;
 
-static int64_t last_time_us = 0;   // <-- estaba global y sin usar; la paso a static, ver nota abajo
+static int64_t last_time_us = 0;
 
 void app_main(void){
 
@@ -45,6 +46,7 @@ void app_main(void){
 
     sensor_fusion_init();
     last_time_us = esp_timer_get_time();
+
 
     while (1) {
         mpu6050_get_acce(mpu, &acce);

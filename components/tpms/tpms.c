@@ -1,6 +1,9 @@
 #include "tpms.h"
 #include "ble.h"
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 
 static tpms_data_t tpms_storage[TPMS_TIRE_COUNT];
 static double psi_factor = 0.145038;
@@ -14,9 +17,10 @@ static const tpms_ble_addr tpms_know_addrs[TPMS_TIRE_COUNT] = {
 };
 
 esp_err_t tpms_lookup_by_addr(const tpms_ble_addr addr, tpms_t *out_tire){
-    esp_err_t result = ESP_FAIL;
     int ret;
-    for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT; i++) {
+    esp_err_t result = ESP_FAIL;
+
+    for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT; i++){
         ret = memcmp(addr, tpms_know_addrs[i], sizeof(tpms_ble_addr));
         if(ret == 0){
             *out_tire = i;
@@ -27,67 +31,67 @@ esp_err_t tpms_lookup_by_addr(const tpms_ble_addr addr, tpms_t *out_tire){
     return result;
 }
 
-esp_err_t tpms_decode_mfg_payload(const uint8_t *payload, size_t payload_len, mfg_payload_t *out_payload){
-    // Unfinished function.
-    esp_err_t result = ESP_FAIL;
-
-    uint16_t raw_kpa = 0;
-    float psi, bar;
-
-    if(payload_len != 11){ // fix: numero 11 hardcodeado
-        return result;
+esp_err_t tpms_raw_mfg_payload(const uint8_t *payload, size_t payload_len, mfg_payload_t *out_payload){
+    if(payload_len != 11){ // 11 hardcodeado
+        return ESP_FAIL;
     }
 
-    /* Payload from BLE (raw)*/
-    out_payload->header =       ((uint16_t)payload[0] << 8) | payload[1];
-    out_payload->raw_temp =     ((uint16_t)payload[2] << 8) | payload[3];
+    out_payload->raw_temp =     (uint8_t) payload[3];
     out_payload->raw_pressure = ((uint16_t)payload[4] << 8) | payload[5];
-    out_payload->raw_battery =  payload[9];
-    out_payload->checksum =     payload[10];
-    for(uint8_t i = 0 ; i <= 3 ; i++){
-        out_payload->id = ((uint16_t)payload[i] << 16); // fix this "expression must be a modifiable lvalue"
+    for(uint8_t i = 0 ; i < 3 ; i++){
+        out_payload->id[i] = payload[6+i]; 
     }
-
-
-
-    return result;
+    return ESP_OK;
 }
 
-void tpms_last_update(tpms_t tire){
-    /* TODO: If tpms_decode_mfg_payload() returns ESP_FAIL, log the error and do not mark the tire as "updated". */
+esp_err_t tpms_last_update(tpms_t tire, mfg_payload_t *payload, tpms_data_t *out_value){
+
+    // TODO: add ESP_FAIL when already know the checksum (not implemented yet).
+
+    out_value->tire =         tire;
+    out_value->pressure_bar = (float)(payload->raw_pressure - 100.0f) * 0.01043f;
+    out_value->temp_c =       (float)payload->raw_temp - 50.0f;
+    out_value->last_seen_us = esp_timer_get_time();
+    return ESP_OK;
 };
 
 
 static void tpms_ble_scan_cb(const ble_adv_report_t *report, void *ctx){
-    // TODO: check whether the arguments are valid.
-    // unfinished function
 
-    for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT ; i++){
-        tpms_lookup_by_addr(report->addr,);
-        tpms_decode_mfg_payload(report->mfg_payload, report->mfg_payload_len,);
+    tpms_t tire;
+    mfg_payload_t decoded;
+
+    if( tpms_lookup_by_addr(report->addr, &tire) != ESP_OK){
+        return;
+    }
+
+    if( tpms_raw_mfg_payload(report->mfg_payload, report->mfg_payload_len, &decoded) != ESP_OK){
+        return;
     }
     
+    if(tpms_last_update(tire, &decoded, &tpms_storage[tire]) != ESP_OK){
+        return;
+    }
 
 }
 
 
 esp_err_t tpms_init(){
-    // Unfinished function.
-    if (ble_init() != ESP_OK) {
+
+    if(ble_init() != ESP_OK || ble_start() != ESP_OK ){
         return ESP_FAIL;
     }
 
-    ble_register_scan_cb(tpms_ble_scan_cb, NULL); // example arguments!
-    ble_start();
-
-
+    esp_err_t scan = ble_register_scan_cb(tpms_ble_scan_cb, NULL);
+    if(scan != ESP_OK){
+        return ESP_FAIL;
+    }
 
     return ESP_OK;
 }
 
 
-
-
-
-
-
+float tpms_bar_to_psi(float pressure_bar){
+    float pressure_psi = pressure_bar * psi_factor;
+    return pressure_psi;
+}
