@@ -19,6 +19,8 @@ static void i2c_bus_init(void);
 mpu6050_acce_value_t acce_offset;
 mpu6050_gyro_value_t gyro_offset;
 
+tpms_data_t tpms_data;
+
 static const char *TAG = "ESPelemetry";
 static mpu6050_handle_t mpu = NULL;
 
@@ -26,7 +28,6 @@ static int64_t last_time_us = 0;
 
 void app_main(void){
 
-    esp_err_t ret;
     uint8_t mpu_deviceid;
     mpu6050_acce_value_t acce;
     mpu6050_gyro_value_t gyro;
@@ -36,6 +37,7 @@ void app_main(void){
 
     mpu6050_config(mpu, ACCE_FS_2G, GYRO_FS_500DPS);
     mpu6050_wake_up(mpu);
+    tpms_init();
 
     ESP_ERROR_CHECK(mpu6050_get_deviceid(mpu, &mpu_deviceid));
     ESP_LOGI(TAG, "WHO_AM_I register value: 0x%02X", mpu_deviceid);

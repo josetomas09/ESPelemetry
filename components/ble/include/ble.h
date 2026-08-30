@@ -23,8 +23,8 @@ typedef struct {
     int8_t  rssi;
     const uint8_t *name;
     uint8_t name_len;
-    const uint8_t *mfg_payload;
-    uint8_t mfg_payload_len;
+    const uint8_t *mfg_data;
+    uint8_t mfg_data_len;
 } ble_adv_report_t;
 
 typedef void (*ble_scan_cb_t)(const ble_adv_report_t *report, void *ctx);

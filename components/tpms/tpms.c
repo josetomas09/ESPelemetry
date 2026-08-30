@@ -1,12 +1,15 @@
 #include "tpms.h"
 #include "ble.h"
 #include <string.h>
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
+static SemaphoreHandle_t tpms_mutex = NULL;
 
 static tpms_data_t tpms_storage[TPMS_TIRE_COUNT];
-static double psi_factor = 0.145038;
+static double psi_factor = 14.5037738f;
 
 static const tpms_ble_addr tpms_know_addrs[TPMS_TIRE_COUNT] = {
     [TPMS_FRONT_LEFT]   = {0xb9, 0x41, 0xfa, 0x00, 0x26, 0xd6},
@@ -45,15 +48,22 @@ esp_err_t tpms_raw_mfg_payload(const uint8_t *payload, size_t payload_len, mfg_p
 }
 
 esp_err_t tpms_last_update(tpms_t tire, mfg_payload_t *payload, tpms_data_t *out_value){
-
+    
+    if(xSemaphoreTake(tpms_mutex, portMAX_DELAY) != pdTRUE){
+        return ESP_FAIL;
+    }
+    
     // TODO: add ESP_FAIL when already know the checksum (not implemented yet).
+
 
     out_value->tire =         tire;
     out_value->pressure_bar = (float)(payload->raw_pressure - 100.0f) * 0.01043f;
     out_value->temp_c =       (float)payload->raw_temp - 50.0f;
     out_value->last_seen_us = esp_timer_get_time();
+    
+    xSemaphoreGive(tpms_mutex);
     return ESP_OK;
-};
+}
 
 
 static void tpms_ble_scan_cb(const ble_adv_report_t *report, void *ctx){
@@ -65,7 +75,7 @@ static void tpms_ble_scan_cb(const ble_adv_report_t *report, void *ctx){
         return;
     }
 
-    if( tpms_raw_mfg_payload(report->mfg_payload, report->mfg_payload_len, &decoded) != ESP_OK){
+    if( tpms_raw_mfg_payload(report->mfg_data, report->mfg_data_len, &decoded) != ESP_OK){
         return;
     }
     
@@ -77,6 +87,11 @@ static void tpms_ble_scan_cb(const ble_adv_report_t *report, void *ctx){
 
 
 esp_err_t tpms_init(){
+
+    tpms_mutex = xSemaphoreCreateMutex();
+    if(tpms_mutex == NULL){
+        return ESP_FAIL;
+    }
 
     if(ble_init() != ESP_OK || ble_start() != ESP_OK ){
         return ESP_FAIL;
@@ -90,6 +105,20 @@ esp_err_t tpms_init(){
     return ESP_OK;
 }
 
+
+esp_err_t tpms_get_data(tpms_t tire, tpms_data_t *out_data){
+    if(xSemaphoreTake(tpms_mutex, portMAX_DELAY) != pdTRUE){
+        return ESP_FAIL;
+    }
+
+    out_data->tire = tire;
+    out_data->pressure_bar = tpms_storage[tire].pressure_bar;
+    out_data->temp_c = tpms_storage[tire].temp_c;
+    out_data->last_seen_us = tpms_storage[tire].last_seen_us;
+
+    xSemaphoreGive(tpms_mutex);
+    return ESP_OK;
+}
 
 float tpms_bar_to_psi(float pressure_bar){
     float pressure_psi = pressure_bar * psi_factor;
