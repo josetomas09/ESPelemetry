@@ -14,12 +14,17 @@
 #define I2C_MASTER_SCL_IO 9             /*!< gpio number for I2C master clock */
 #define I2C_MASTER_FREQ_HZ 400000       /*!< I2C master clock frequency (400kHz for Fast-Mode) */
 
+static const char *tpms_tire_names[TPMS_TIRE_COUNT] = {
+    [TPMS_FRONT_LEFT]  = "Front Left",
+    [TPMS_FRONT_RIGHT] = "Front Right",
+    [TPMS_REAR_LEFT]   = "Rear Left",
+    [TPMS_REAR_RIGHT]  = "Rear Right",
+};
+
 static void i2c_bus_init(void);
 
 mpu6050_acce_value_t acce_offset;
 mpu6050_gyro_value_t gyro_offset;
-
-tpms_data_t tpms_data;
 
 static const char *TAG = "ESPelemetry";
 static mpu6050_handle_t mpu = NULL;
@@ -36,8 +41,10 @@ void app_main(void){
     i2c_bus_init();
 
     mpu6050_config(mpu, ACCE_FS_2G, GYRO_FS_500DPS);
-    mpu6050_wake_up(mpu);
-    tpms_init();
+
+    ESP_ERROR_CHECK(mpu6050_wake_up(mpu));
+    ESP_ERROR_CHECK(tpms_init());
+    tpms_data_t all_tpms[TPMS_TIRE_COUNT];
 
     ESP_ERROR_CHECK(mpu6050_get_deviceid(mpu, &mpu_deviceid));
     ESP_LOGI(TAG, "WHO_AM_I register value: 0x%02X", mpu_deviceid);
@@ -55,6 +62,11 @@ void app_main(void){
         mpu6050_get_gyro(mpu, &gyro);
         mpu6050_get_temp(mpu, &temp);
 
+        
+        for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT ; i++){
+            tpms_get_data(i, &all_tpms[i]);
+        }
+
         int64_t now_us = esp_timer_get_time();
         float dt = (now_us - last_time_us) / 1e6f;
         last_time_us = now_us;
@@ -65,10 +77,41 @@ void app_main(void){
             gyro.gyro_x, gyro.gyro_y, gyro.gyro_z
         );
 
-        ESP_LOGI(TAG, "Temp: %.2f °C", temp.temp);
-        ESP_LOGI(TAG, "Acce (g)   X: %.2f \t Y: %.2f \t Z: %.2f", acce.acce_x, acce.acce_y, acce.acce_z);
-        ESP_LOGI(TAG, "Gyro (dps) X: %.2f \t Y: %.2f \t Z: %.2f", gyro.gyro_x, gyro.gyro_y, gyro.gyro_z);
-        ESP_LOGI(TAG, "Fused (deg) Roll: %.2f \t Pitch: %.2f \t Yaw: %.2f\n", get_roll(), get_pitch(), get_yaw());
+
+        ESP_LOGI(TAG, "--- Telemetry Update ---");
+        ESP_LOGI(TAG, "IMU  | Temp: %5.2f °C | Roll: %6.2f | Pitch: %6.2f | Yaw: %6.2f", 
+            temp.temp, 
+            get_roll(), 
+            get_pitch(), 
+            get_yaw()
+        );
+
+        //Teleplot
+        printf(">ChassisTilt:%.2f:%.2f\n", get_roll(), get_pitch());
+        printf(">Lat_G:%.2f\n", acce.acce_x); 
+        printf(">Long_G:%.2f\n", acce.acce_y);
+        printf(">GForceMeter:%.2f:%.2f\n", acce.acce_x, acce.acce_y);
+
+        for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT ; i++){
+            ESP_LOGI(TAG, "TPMS | %-11s : %4.2f Bar | %5.2f °C %.2f secs", 
+                tpms_tire_names[all_tpms[i].tire], 
+                all_tpms[i].pressure_bar, 
+                all_tpms[i].temp_c,
+                dt
+            );
+
+            //teleplot
+
+            printf(">%s_pressure (PSI):%.2f\n", 
+                tpms_tire_names[all_tpms[i].tire], 
+                tpms_bar_to_psi(all_tpms[i].pressure_bar)
+            );
+            printf(">%s_temp:%.2f\n", 
+                tpms_tire_names[all_tpms[i].tire], 
+                all_tpms[i].temp_c
+            );
+        
+        }
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }

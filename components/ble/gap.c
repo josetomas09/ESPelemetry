@@ -34,7 +34,15 @@ static int gap_event_handler(struct ble_gap_event *event, void *arg) {
         }
 
         ble_adv_report_t report = {0};
-        memcpy(report.addr, disc->addr.val, BLE_ADDR_LEN);
+
+        /**
+        *   NimBLE provides the address in little-endian order,
+        *   which is reversed to big-endian so it matches the standard
+        *   MAC address notation (i.e. "b9:41:fa:00:26:d6").
+        */
+        for(uint8_t i = 0 ; i < BLE_ADDR_LEN ; i++){
+            report.addr[i] = disc->addr.val[5 - i];
+        }
         report.rssi = disc->rssi;
 
         if (fields.name != NULL) {
