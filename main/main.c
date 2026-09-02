@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "sensor_fusion.h"
 #include "tpms.h"
+#include "datalogger.h"
 
 #define I2C_MASTER_SDA_IO 8             /*!< gpio number for I2C master data  */
 #define I2C_MASTER_SCL_IO 9             /*!< gpio number for I2C master clock */
