@@ -61,7 +61,6 @@ void app_main(void){
     while (1) {
         mpu6050_get_acce(mpu, &acce);
         mpu6050_get_gyro(mpu, &gyro);
-        mpu6050_get_temp(mpu, &temp);
 
         
         for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT ; i++){
@@ -80,8 +79,7 @@ void app_main(void){
 
 
         ESP_LOGI(TAG, "--- Telemetry Update ---");
-        ESP_LOGI(TAG, "IMU  | Temp: %5.2f °C | Roll: %6.2f | Pitch: %6.2f | Yaw: %6.2f", 
-            temp.temp, 
+        ESP_LOGI(TAG, "IMU | Roll: %6.2f | Pitch: %6.2f | Yaw: %6.2f", 
             get_roll(), 
             get_pitch(), 
             get_yaw()

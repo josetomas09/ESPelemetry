@@ -6,7 +6,9 @@
 extern "C" {
 #endif
 
-void datalogger_init();
+static wl_handle_t storage_init_spiflash(void);
+
+esp_err_t datalogger_init(void);
 
 
 
