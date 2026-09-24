@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-static wl_handle_t storage_init_spiflash(void);
+static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle);
 
 esp_err_t datalogger_init(void);
 
