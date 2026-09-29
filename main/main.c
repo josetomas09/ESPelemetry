@@ -4,6 +4,7 @@
 #include "driver/i2c_master.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "driver/gpio.h"
 #include "mpu6050.h"
 #include "eekf.h"
 #include "esp_system.h"
@@ -13,9 +14,10 @@
 #include "tpms.h"
 #include "datalogger.h"
 
-#define I2C_MASTER_SDA_IO GPIO_NUM_8             /*!< gpio number for I2C master data  */
-#define I2C_MASTER_SCL_IO GPIO_NUM_9             /*!< gpio number for I2C master clock */
-#define I2C_MASTER_FREQ_HZ 400000                /*!< I2C master clock frequency (400kHz for Fast-Mode) */
+#define I2C_MASTER_SDA_IO GPIO_NUM_8                    /*!< gpio number for I2C master data  */
+#define I2C_MASTER_SCL_IO GPIO_NUM_9                    /*!< gpio number for I2C master clock */
+#define INPUT_PUSH_BUTTON_GPIO GPIO_NUM_47              /*!< gpio number for push button input */
+#define I2C_MASTER_FREQ_HZ 400000                       /*!< I2C master clock frequency (400kHz for Fast-Mode) */
 
 static const char *tpms_tire_names[TPMS_TIRE_COUNT] = {
     [TPMS_FRONT_LEFT]  = "Front Left",
@@ -36,6 +38,22 @@ static mpu6050_handle_t mpu = NULL;
 
 void app_main(void){
 
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << INPUT_PUSH_BUTTON_GPIO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+
+
+
+    uint8_t push_button_state;
+    uint8_t last_push_button_state = 0;
+    uint8_t logging_state = 0;
+    uint8_t last_logging_state = 0;
+
     int64_t now_us = 0;
     float dt = 0.0f;
     int64_t last_time_EKF = 0; 
@@ -55,6 +73,7 @@ void app_main(void){
     ESP_ERROR_CHECK(nvs_init());
 
     ESP_ERROR_CHECK(datalogger_init());
+    
     ESP_ERROR_CHECK(mpu6050_wake_up(mpu));
     ESP_ERROR_CHECK(tpms_init());
     
@@ -70,6 +89,9 @@ void app_main(void){
 
     last_time_EKF = esp_timer_get_time();
     last_time_Datalogger = esp_timer_get_time();
+
+    push_button_state = gpio_get_level(INPUT_PUSH_BUTTON_GPIO);
+    last_push_button_state = push_button_state;
 
     while (1) {
 
@@ -91,14 +113,6 @@ void app_main(void){
         );
 
 
-        ESP_LOGI(TAG, "--- Telemetry Update ---");
-        ESP_LOGI(TAG, "IMU | Roll: %6.2f | Pitch: %6.2f | Yaw: %6.2f", 
-            get_roll(), 
-            get_pitch(), 
-            get_yaw()
-        );
-
-
         payload = (datalogger_payload_t){
             .timestamp = (uint32_t) ((now_us - last_time_Datalogger) / 1000),
             .roll = get_roll(),
@@ -108,13 +122,33 @@ void app_main(void){
             payload.tires[i] = all_tpms[i];
         }
 
-        if(datalogger_save_on_memory(&payload) != ESP_OK){
-            ESP_LOGE(TAG, "Error saving data to memory");
-        } else {
-            ESP_LOGI(TAG, "Data saved to memory successfully");
-        }
-        
 
+        push_button_state = gpio_get_level(INPUT_PUSH_BUTTON_GPIO);
+
+        logging_state = (push_button_state == 1 && last_push_button_state == 0) ? !logging_state : logging_state;
+
+        if(last_logging_state == 0 && logging_state == 1){
+            ESP_LOGI(TAG, "Logging session started");
+
+            if(datalogger_init_file_handler() != ESP_OK){
+                ESP_LOGE(TAG, "Failed to initialize datalogger file handler");
+            }else {
+                ESP_LOGI(TAG, "Datalogger file handler initialized successfully");
+            }
+        }
+
+        if(logging_state == 1){
+            if(datalogger_save_on_memory(&payload) != ESP_OK){
+                ESP_LOGE(TAG, "Failed to save data logger payload");
+            }else{
+                ESP_LOGI(TAG, "Data logger payload saved successfully");
+            }
+        }
+
+        last_push_button_state = push_button_state;
+        last_logging_state = logging_state;
+
+        /*
         // Teleplot debug
         printf(">ChassisTilt:%.2f:%.2f\n", get_roll(), get_pitch());
         printf(">Lat_G:%.2f\n", acce.acce_x); 
@@ -141,6 +175,8 @@ void app_main(void){
             );
         
         }
+        
+        */
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }

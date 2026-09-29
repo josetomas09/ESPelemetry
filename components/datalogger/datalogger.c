@@ -80,7 +80,7 @@ esp_err_t datalogger_save_on_memory(datalogger_payload_t *payload){
     return ESP_OK;
 }
 
-static esp_err_t datalogger_init_file_handler(void){
+esp_err_t datalogger_init_file_handler(void){
 
     esp_err_t err;
 
@@ -234,10 +234,6 @@ esp_err_t datalogger_init(void){
 
     
     if(tinyusb_msc_new_storage_spiflash(&cfg, &storage_hdl) != ESP_OK){
-        return ESP_FAIL;
-    }
-
-    if(datalogger_init_file_handler() != ESP_OK){
         return ESP_FAIL;
     }
 

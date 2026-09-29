@@ -32,6 +32,13 @@ typedef struct {
 esp_err_t datalogger_save_on_memory(datalogger_payload_t *payload);
 
 /**
+ * @brief Initialize the data logger file handler
+ *
+ * @return esp_err_t Returns ESP_OK on success, or an error code on failure.
+ */
+esp_err_t datalogger_init_file_handler(void);
+
+/**
  * @brief Initialize the data logger
  *
  * @return esp_err_t Returns ESP_OK on success, or an error code on failure.
