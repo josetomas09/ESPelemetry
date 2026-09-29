@@ -4,16 +4,16 @@
   "idf.openOcdConfigs": [
     "board/esp32s3-builtin.cfg"
   ],
-  "idf.port": "/dev/ttyUSB0",
-  "idf.currentSetup": "/home/jose/.espressif/v6.0.2/esp-idf",
+  "idf.port": "COM4",
+  "idf.currentSetup": "C:\\esp\\v6.1\\esp-idf",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32s3"
   },
-  "clangd.path": "/home/jose/.espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd",
+  "clangd.path": "C:\\Espressif\\tools\\esp-clangd\\esp-21.1.3_20260408\\esp-clangd\\bin\\clangd.exe",
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",
-    "--compile-commands-dir=/home/jose/documents/ESPelemetry/build"
+    "--compile-commands-dir=C:/Users/joset/Documents/Programacion/ESPelemetry/build"
   ],
   "cmake.configureOnOpen": false,
   "idf.flashType": "UART"

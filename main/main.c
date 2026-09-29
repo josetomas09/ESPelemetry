@@ -2,6 +2,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c_master.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "mpu6050.h"
 #include "eekf.h"
 #include "esp_system.h"
@@ -9,10 +11,11 @@
 #include "esp_timer.h"
 #include "sensor_fusion.h"
 #include "tpms.h"
+#include "datalogger.h"
 
-#define I2C_MASTER_SDA_IO 8             /*!< gpio number for I2C master data  */
-#define I2C_MASTER_SCL_IO 9             /*!< gpio number for I2C master clock */
-#define I2C_MASTER_FREQ_HZ 400000       /*!< I2C master clock frequency (400kHz for Fast-Mode) */
+#define I2C_MASTER_SDA_IO GPIO_NUM_8             /*!< gpio number for I2C master data  */
+#define I2C_MASTER_SCL_IO GPIO_NUM_9             /*!< gpio number for I2C master clock */
+#define I2C_MASTER_FREQ_HZ 400000                /*!< I2C master clock frequency (400kHz for Fast-Mode) */
 
 static const char *tpms_tire_names[TPMS_TIRE_COUNT] = {
     [TPMS_FRONT_LEFT]  = "Front Left",
@@ -22,6 +25,7 @@ static const char *tpms_tire_names[TPMS_TIRE_COUNT] = {
 };
 
 static void i2c_bus_init(void);
+static esp_err_t nvs_init(void);
 
 mpu6050_acce_value_t acce_offset;
 mpu6050_gyro_value_t gyro_offset;
@@ -29,23 +33,31 @@ mpu6050_gyro_value_t gyro_offset;
 static const char *TAG = "ESPelemetry";
 static mpu6050_handle_t mpu = NULL;
 
-static int64_t last_time_us = 0;
 
 void app_main(void){
+
+    int64_t now_us = 0;
+    float dt = 0.0f;
+    int64_t last_time_EKF = 0; 
+    int64_t last_time_Datalogger = 0;
+
+    tpms_data_t all_tpms[TPMS_TIRE_COUNT];
+
+    datalogger_payload_t payload;
 
     uint8_t mpu_deviceid;
     mpu6050_acce_value_t acce;
     mpu6050_gyro_value_t gyro;
-    mpu6050_temp_value_t temp;
 
     i2c_bus_init();
-
     mpu6050_config(mpu, ACCE_FS_2G, GYRO_FS_500DPS);
+    
+    ESP_ERROR_CHECK(nvs_init());
 
+    ESP_ERROR_CHECK(datalogger_init());
     ESP_ERROR_CHECK(mpu6050_wake_up(mpu));
     ESP_ERROR_CHECK(tpms_init());
-    tpms_data_t all_tpms[TPMS_TIRE_COUNT];
-
+    
     ESP_ERROR_CHECK(mpu6050_get_deviceid(mpu, &mpu_deviceid));
     ESP_LOGI(TAG, "WHO_AM_I register value: 0x%02X", mpu_deviceid);
 
@@ -53,23 +65,24 @@ void app_main(void){
     ESP_ERROR_CHECK(mpu6050_calibrate(mpu, 5000));
     ESP_LOGI(TAG, "Calibracion exitosa!");
 
+    
     sensor_fusion_init();
-    last_time_us = esp_timer_get_time();
 
+    last_time_EKF = esp_timer_get_time();
+    last_time_Datalogger = esp_timer_get_time();
 
     while (1) {
+
         mpu6050_get_acce(mpu, &acce);
         mpu6050_get_gyro(mpu, &gyro);
-        mpu6050_get_temp(mpu, &temp);
 
-        
         for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT ; i++){
             tpms_get_data(i, &all_tpms[i]);
         }
 
-        int64_t now_us = esp_timer_get_time();
-        float dt = (now_us - last_time_us) / 1e6f;
-        last_time_us = now_us;
+        now_us = esp_timer_get_time();
+        dt = (now_us - last_time_EKF) / 1e6f;
+        last_time_EKF = now_us;
 
         sensor_fusion_update(
             dt,
@@ -79,14 +92,30 @@ void app_main(void){
 
 
         ESP_LOGI(TAG, "--- Telemetry Update ---");
-        ESP_LOGI(TAG, "IMU  | Temp: %5.2f °C | Roll: %6.2f | Pitch: %6.2f | Yaw: %6.2f", 
-            temp.temp, 
+        ESP_LOGI(TAG, "IMU | Roll: %6.2f | Pitch: %6.2f | Yaw: %6.2f", 
             get_roll(), 
             get_pitch(), 
             get_yaw()
         );
 
-        //Teleplot
+
+        payload = (datalogger_payload_t){
+            .timestamp = (uint32_t) ((now_us - last_time_Datalogger) / 1000),
+            .roll = get_roll(),
+            .pitch = get_pitch()
+        };
+        for(uint8_t i = 0 ; i < TPMS_TIRE_COUNT ; i++){
+            payload.tires[i] = all_tpms[i];
+        }
+
+        if(datalogger_save_on_memory(&payload) != ESP_OK){
+            ESP_LOGE(TAG, "Error saving data to memory");
+        } else {
+            ESP_LOGI(TAG, "Data saved to memory successfully");
+        }
+        
+
+        // Teleplot debug
         printf(">ChassisTilt:%.2f:%.2f\n", get_roll(), get_pitch());
         printf(">Lat_G:%.2f\n", acce.acce_x); 
         printf(">Long_G:%.2f\n", acce.acce_y);
@@ -100,7 +129,7 @@ void app_main(void){
                 dt
             );
 
-            //teleplot
+            // Teleplot for debug
 
             printf(">%s_pressure (PSI):%.2f\n", 
                 tpms_tire_names[all_tpms[i].tire], 
@@ -141,4 +170,18 @@ static void i2c_bus_init(void){
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
 
     mpu = mpu6050_create(dev_handle);
+}
+
+static esp_err_t nvs_init(void){
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to initialize NVS flash: %s", esp_err_to_name(err));
+            return err;
+        }
+    }
+    ESP_ERROR_CHECK(err);
+    return err;
 }
