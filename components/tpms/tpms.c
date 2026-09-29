@@ -113,6 +113,7 @@ esp_err_t tpms_get_data(tpms_t tire, tpms_data_t *out_data){
 
     out_data->tire = tire;
     out_data->pressure_bar = tpms_storage[tire].pressure_bar;
+    out_data->pressure_psi = tpms_bar_to_psi(tpms_storage[tire].pressure_bar);
     out_data->temp_c = tpms_storage[tire].temp_c;
     out_data->last_seen_us = tpms_storage[tire].last_seen_us;
 

@@ -41,6 +41,7 @@ typedef struct {
     int64_t last_seen_us;
     float temp_c;
     float pressure_bar;
+    float pressure_psi;
 } tpms_data_t;
 
 /**
